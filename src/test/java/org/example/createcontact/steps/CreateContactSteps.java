@@ -16,8 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class CreateContactSteps {
     private final RequestSpecBuilder requestSpec;
@@ -25,6 +24,8 @@ public class CreateContactSteps {
     private String token;
     private Response response;
     private Map<String, String> createdContact;
+    private Map<String, String> contactToBeDeleted;
+    List<Map<String, String>> allContacts;
 
     public CreateContactSteps() {
         requestSpec = new RequestSpecBuilder().setBaseUri("https://thinking-tester-contact-list.herokuapp.com/");
@@ -99,5 +100,53 @@ public class CreateContactSteps {
         List<Map<String, String>> createdContacts = response.getBody().jsonPath().getList(".");
         boolean isContactInList = createdContacts.contains(createdContact);
         assertTrue(isContactInList);
+    }
+
+    @Given("the user has a list of contacts")
+    public void theUserHasAListOfContacts() {
+
+        response = given().spec(requestSpec.build())
+                .header("Authorization", "Bearer "+token)
+                .get("contacts");
+
+        allContacts = response.getBody().jsonPath().getList(".");
+    }
+
+    @When("the user deletes the contact in position {string}")
+    public void theUserDeletesTheContactInPosition(String positon) {
+
+        contactToBeDeleted = allContacts.get(Integer.parseInt(positon)-1);
+        String contactToDeleteId = contactToBeDeleted.get("_id");
+
+        response = given().spec(requestSpec.build())
+                .header("Authorization", "Bearer "+token)
+                .delete("contacts/"+contactToDeleteId);
+    }
+
+    @Then("the response message is {string}")
+    public void theResponseMessageIs(String msg){
+        assertEquals(msg,response.asString());
+    }
+
+    @Then("the contact is not in a list of contacts")
+    public void theContactIsNotInAListOfContacts() {
+        response = given().spec(requestSpec.build())
+                .header("Authorization", "Bearer "+token)
+                .get("contacts");
+
+        List<Map<String, String>> createdContacts = response.getBody().jsonPath().getList(".");
+        boolean isContactInList = createdContacts.contains(contactToBeDeleted);
+        assertFalse(isContactInList);
+    }
+
+    @Given("three contacts are created")
+    public void threeContactsAreCreated() {
+
+        for (int i = 0; i <= 3; i++) {
+            theContactHasAFirstNameALastNameAndBirthdate("name", "surname", "1970-01-01");
+            theContactHasAnEmailAddressAndCellphoneNumber("auto-generated", "auto-generated");
+            theContactHasAPhysicalAddressOf("street1", "street2", "city", "state", "04662", "country");
+            theUserAddsANewContact();
+        }
     }
 }
